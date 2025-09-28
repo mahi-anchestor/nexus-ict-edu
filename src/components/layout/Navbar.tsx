@@ -20,7 +20,7 @@ const userNavigation = [
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { user, profile, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -111,7 +111,7 @@ export default function Navbar() {
                 
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-muted-foreground">
-                    Welcome, {profile?.full_name || user.email}
+                    Welcome, {user?.fullName || user.email}
                   </span>
                   <Button
                     onClick={handleSignOut}
@@ -204,7 +204,7 @@ export default function Navbar() {
                         <div className="px-4 py-2">
                           <p className="text-sm text-muted-foreground">Signed in as</p>
                           <p className="text-sm font-medium text-primary">
-                            {profile?.full_name || user.email}
+                            {user?.fullName || user.email}
                           </p>
                         </div>
                         <Button

@@ -6,7 +6,7 @@ import StudentDashboard from '@/components/dashboard/StudentDashboard';
 import Navbar from '@/components/layout/Navbar';
 
 export default function Dashboard() {
-  const { user, profile, loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -24,7 +24,7 @@ export default function Dashboard() {
   }
 
   const renderDashboard = () => {
-    switch (profile?.role) {
+    switch (user?.role) {
       case 'admin':
         return <AdminDashboard />;
       case 'teacher':

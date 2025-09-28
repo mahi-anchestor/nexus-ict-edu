@@ -38,20 +38,12 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(formData.email, formData.password);
-        if (error) {
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Welcome back!",
-            description: "Successfully logged in to Exclusive ICT Care.",
-          });
-          navigate('/');
-        }
+        await signIn(formData.email, formData.password);
+        toast({
+          title: "Welcome back!",
+          description: "Successfully logged in to Exclusive ICT Care.",
+        });
+        navigate('/');
       } else {
         if (formData.password !== formData.confirmPassword) {
           toast({
@@ -63,24 +55,20 @@ export default function AuthPage() {
         }
 
         const userData = {
-          full_name: formData.full_name,
-          role: formData.role,
-          ...(formData.role === 'student' && formData.class_level ? { class_level: formData.class_level } : {})
+          username: formData.email.split('@')[0],
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.full_name,
+          role: formData.role as 'student' | 'teacher',
+          classLevel: formData.role === 'student' ? formData.class_level.toUpperCase() as 'SSC' | 'HSC' : undefined
         };
 
-        const { error } = await signUp(formData.email, formData.password, userData);
-        if (error) {
-          toast({
-            title: "Signup Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Account Created!",
-            description: "Please check your email to verify your account.",
-          });
-        }
+        await signUp(userData);
+        toast({
+          title: "Account Created!",
+          description: "Successfully registered to Exclusive ICT Care.",
+        });
+        navigate('/');
       }
     } catch (err) {
       toast({
@@ -157,9 +145,7 @@ export default function AuthPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="ssc">SSC</SelectItem>
-                        <SelectItem value="hsc_1st">HSC 1st Year</SelectItem>
-                        <SelectItem value="hsc_2nd">HSC 2nd Year</SelectItem>
-                        <SelectItem value="admission">University Admission</SelectItem>
+                        <SelectItem value="hsc">HSC</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

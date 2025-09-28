@@ -1,147 +1,125 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import axios from 'axios';
 
-interface Profile {
+const API_URL = 'http://localhost:5000/api';
+
+interface User {
   id: string;
-  user_id: string;
-  full_name: string | null;
-  phone: string | null;
-  role: 'admin' | 'teacher' | 'student';
-  class_level: 'ssc' | 'hsc_1st' | 'hsc_2nd' | 'admission' | null;
-  created_at: string;
-  updated_at: string;
+  username: string;
+  email: string;
+  fullName: string;
+  phone?: string;
+  role: 'student' | 'teacher' | 'admin';
+  classLevel?: 'SSC' | 'HSC';
 }
 
 interface AuthContextType {
   user: User | null;
-  profile: Profile | null;
-  session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData: { full_name: string; role: string; class_level?: string }) => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
+  signIn: (username: string, password: string) => Promise<void>;
+  signUp: (data: RegisterData) => Promise<void>;
+  signOut: () => void;
+  updateProfile: (data: Partial<User>) => Promise<void>;
+  sendOTP: (email: string) => Promise<void>;
+  verifyOTP: (email: string, otp: string) => Promise<void>;
+}
+
+interface RegisterData {
+  username: string;
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  role?: 'student' | 'teacher';
+  classLevel?: 'SSC' | 'HSC';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export function AuthProvider({ children }: AuthProviderProps) {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            const { data: profileData, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', session.user.id)
-              .single();
-            
-            if (!error && profileData) {
-              setProfile(profileData as Profile);
-            }
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      fetchCurrentUser();
+    } else {
       setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
-  const signUp = async (email: string, password: string, userData: { full_name: string; role: string; class_level?: string }) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/auth/me`);
+      setUser(response.data.user);
+    } catch (error) {
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signIn = async (username: string, password: string) => {
+    const response = await axios.post(`${API_URL}/auth/login`, {
+      username,
       password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: userData
-      }
     });
-    
-    return { error };
+
+    const { token, user: userData } = response.data;
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(userData);
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    return { error };
+  const signUp = async (data: RegisterData) => {
+    const response = await axios.post(`${API_URL}/auth/register`, data);
+
+    const { token, user: userData } = response.data;
+    localStorage.setItem('token', token);
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setUser(userData);
   };
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const signOut = () => {
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setProfile(null);
-    setSession(null);
   };
 
-  const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) {
-      return { error: { message: 'No user logged in' } };
-    }
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('user_id', user.id)
-      .select()
-      .single();
-
-    if (!error && data) {
-      setProfile(data as Profile);
-    }
-
-    return { error };
+  const updateProfile = async (data: Partial<User>) => {
+    const response = await axios.put(`${API_URL}/auth/profile`, data);
+    setUser(response.data.user);
   };
 
-  const value = {
+  const sendOTP = async (email: string) => {
+    await axios.post(`${API_URL}/auth/send-otp`, { email });
+  };
+
+  const verifyOTP = async (email: string, otp: string) => {
+    await axios.post(`${API_URL}/auth/verify-otp`, { email, otp });
+  };
+
+  const value: AuthContextType = {
     user,
-    profile,
-    session,
     loading,
-    signUp,
     signIn,
+    signUp,
     signOut,
     updateProfile,
+    sendOTP,
+    verifyOTP,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
+};

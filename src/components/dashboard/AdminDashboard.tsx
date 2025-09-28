@@ -19,7 +19,7 @@ const recentActivities = [
 ];
 
 export default function AdminDashboard() {
-  const { profile } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="space-y-8">
@@ -31,7 +31,7 @@ export default function AdminDashboard() {
               Admin Dashboard
             </h1>
             <p className="text-muted-foreground text-lg">
-              Welcome back, {profile?.full_name}! Manage your ICT education platform.
+              Welcome back, {user?.fullName}! Manage your ICT education platform.
             </p>
           </div>
           <div className="hidden md:block">
